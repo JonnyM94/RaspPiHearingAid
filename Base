@@ -1,0 +1,249 @@
+from __future__ import print_function, division, absolute_import, unicode_literals
+
+import alsaaudio, time
+import numpy as np
+import threading
+import Tkinter as tk
+
+import matplotlib.pyplot as plt
+
+from scipy import interpolate
+
+################################
+
+debug = True # GLobal variable to be 'true' when code is being debugged
+
+""" SET AUDIO PARAMETERS """
+chunk = 128 # Buffer size (128/fs = 8ms)
+channels = 2
+card = 'plughw:1,0' # Audio input/output source
+fs = 16000 # Sampling frequency
+
+""" INPUT """
+inp = alsaaudio.PCM(alsaaudio.PCM_CAPTURE,alsaaudio.PCM_NORMAL,card)
+inp.setchannels(channels)
+inp.setrate(fs)
+inp.setformat(alsaaudio.PCM_FORMAT_FLOAT_LE)
+inp.setperiodsize(chunk)
+
+""" OUTPUT """
+out = alsaaudio.PCM(alsaaudio.PCM_PLAYBACK,alsaaudio.PCM_NORMAL,card)
+out.setchannels(channels)
+out.setrate(fs)
+out.setformat(alsaaudio.PCM_FORMAT_FLOAT_LE)
+out.setperiodsize(chunk)
+
+""" SET GLOBAL DEFAULTS """
+
+gain = 0
+
+# Compressor
+comp_t_default = 50
+comp_cr_default = 5
+comp_mg_default = 10
+comp_kw_default = 10
+
+""" I/O FUNCTION """
+
+silence = chr(0)*channels*chunk*2
+
+def play():
+    while not finish:
+        if bypass_audio == False:
+                l,data = inp.read() # Find length and extract data from stream
+                if l == chunk: # Check that the length
+                    data_in = np.fromstring(data,dtype="float32")
+                    data_proc = data_in
+                    if bypass_gain == False:
+                        data_proc = bGain(data_proc)
+                    if bypass_compressor == False:
+                        data_proc = bCompressor(data_proc)
+                    data_out = np.array(data_proc,dtype="float32")
+                    out.write(data_out)
+                else:
+                    out.write(silence)
+        else:
+            pass
+        # time.sleep(0.001) WHY?
+
+""" COMPRESSION FUNCTIONS """
+
+def PDBranchingSmooth(x,fs,tauA,tauR): # Branching smooth is a mehtod of envelope detection
+    alphaA = np.exp(-1/(tauA*fs)) # Convert tauA and tauR (attack and release time constants) to time
+    alphaR = np.exp(-1/(tauR*fs))
+    y = np.abs(x)
+    c = 0 # Dummy variable for incoming signal
+    for i in range(0,len(y)):
+        if y[i] > c: # When next sample is increasing
+            c = alphaA*c+(1-alphaA)*y[i] # Attack
+        else: # When next sample is decreasing
+            c = alphaR*c+(1-alphaR)*y[i] # Release
+        y[i] = c # Assing new value to y
+    return y
+    
+def CompressionCurve(threshold,compression_ratio,makeup_gain,knee_width):
+    inputdB = np.arange(0,131,1,dtype='float') # Set input and output in dB
+    outputdB = np.arange(0,131,1,dtype='float')
+    outputdB = outputdB + makeup_gain; # Add makeup gain to curve
+    inputdB.tolist().index(threshold)
+    outputdB[threshold:] = outputdB[threshold:]/compression_ratio-outputdB[threshold]/compression_ratio+outputdB[threshold] # Changes gradient of curve above threshold
+    knee_l = int(np.ceil(threshold-knee_width/2)) # Set start and end of knee
+    knee_h = int(np.ceil(threshold+knee_width/2))
+    x2=interpolate.interp1d(np.array([knee_l-1,knee_l,knee_h,knee_h+1],'float'),
+                                     np.array([outputdB[knee_l-1],outputdB[knee_l],outputdB[knee_h],outputdB[knee_h+1]]),
+                                     'cubic')(np.arange(knee_l,knee_h,1)) # Smoothing the knee
+    outputdB[knee_l:knee_h] = x2
+    return inputdB,outputdB
+
+#inputdB,outputdB = CompressionCurve(comp_t_default,comp_cr_default,comp_mg_default,comp_kw_default)
+
+""" SIGNAL PROCESSING BLOCKS """
+
+def bGain(x):
+    return np.multiply(np.power(10,np.divide(gain,10.0)),x)
+    
+def bCompressor(x):
+    global inputdB, outputdB
+    dB = np.multiply(10,np.log10(PDBranchingSmooth(x,fs,0.05,0.05)))
+    y = np.multiply(np.power(10,np.divide(np.subtract(dB,np.interp(dB,inputdB,outputdB)),10.0)),x)
+    return y
+
+""" BYPASS FUNCTIONS """
+
+bypass_audio = True
+bypass_gain = False
+bypass_compressor = True
+
+def toggle_audio():
+    global bypass_audio
+    if bypass_audio == True:
+        bypass_audio = False
+    else:
+        bypass_audio = True
+    if debug == True:
+        print('Bypass audio = ',bypass_audio)
+
+def toggle_gain():
+    global bypass_gain
+    if bypass_gain == True:
+        bypass_gain = False
+    else:
+        bypass_gain = True
+    if debug == True:
+        print('Bypass gain = ',bypass_gain)
+    
+def toggle_compressor():
+    global bypass_compressor
+    if bypass_compressor == True:
+        bypass_compressor = False
+    else:
+        bypass_compressor = True
+    if debug == True:
+        print('Bypass compressor = ',bypass_compressor)
+
+""" GUI INTERFACING """
+
+def get_gain(val):
+    global gain
+    gain = float(val)   
+
+def get_comp_t(val): # Threshold
+    global comp_t
+    comp_t = float(val)
+
+def get_comp_cr(val): # Compression ratio
+    global comp_cr
+    comp_cr = float(val)
+
+def get_comp_mg(val): # Makeup gain
+    global comp_mg
+    comp_mg = float(val)
+
+def get_comp_kw(val): # Knee width
+    global comp_kw
+    comp_kw = float(val)
+    
+def comp_update():
+    global inputdB,outputdB
+    inputdB,outputdB = CompressionCurve(comp_t,comp_cr,comp_mg,comp_kw)
+
+def comp_plot():
+    global inputdB,outputdB
+    global fig
+    fig = plt.figure(1)
+    plt.plot(inputdB,outputdB)
+    plt.hold(True)
+    plt.plot(comp_t,outputdB[comp_t],marker='o')
+    plt.grid
+    plt.xlim(0,130)
+    plt.xlabel('Input (dB)')
+    plt.ylim(0,200)
+    plt.ylabel('Output (dB)')
+    plt.hold(False)
+    plt.show()
+
+""" TKINTER GUI """
+
+def TkinterGui():
+    global finish
+    global start
+    
+    root=tk.Tk()
+    
+    btn1 = tk.Button(root, text="Start/stop audio", command=toggle_audio)
+    btn1.pack(fill='x')
+    
+    label1 = tk.Label(root, text="GAIN")
+    label1.pack()
+    
+    slider1 = tk.Scale(root,from_=-20,to=6,resolution=0.1,orient='horizontal',command=get_gain,length=120)
+    slider1.set(0)
+    slider1.pack(fill='x')
+    
+    btn2 = tk.Button(root, text="Bypass gain", command=toggle_gain)
+    btn2.pack(fill='x')
+    
+    label2 = tk.Label(root, text="COMPRESSOR")
+    label2.pack()
+    
+    slider2 = tk.Scale(root,from_=1,to=130, orient='horizontal',command=get_comp_t,label='Threshold',length=120)
+    slider2.set(comp_t_default)
+    slider2.pack(fill='x')
+    
+    slider3 = tk.Scale(root,from_=1,to=20, orient='horizontal',command=get_comp_cr,label='Compression ratio',length=120)
+    slider3.set(comp_cr_default)
+    slider3.pack(fill='x')
+    
+    slider4 = tk.Scale(root,from_=0,to=50, orient='horizontal',command=get_comp_mg,label='Makeup gain',length=120)
+    slider4.set(comp_mg_default)
+    slider4.pack(fill='x')
+    
+    slider5 = tk.Scale(root,from_=1,to=51, resolution=1, orient='horizontal',command=get_comp_kw,label='Knee width',length=120)
+    slider5.set(comp_kw_default)
+    slider5.pack(fill='x')
+    
+    btn3 = tk.Button(root, text="Bypass compressor", command=toggle_compressor)
+    btn3.pack(fill='x')
+    
+    btn4 = tk.Button(root, text="Update compressor values", command=comp_update)
+    btn4.pack(fill='x')
+
+    btn5 = tk.Button(root, text="Plot compressor graph", command=comp_plot)
+    btn5.pack(fill='x')
+    
+    root.mainloop()
+    
+    finish = True
+
+""" THREADING """
+
+finish = False
+
+GUI = threading.Thread(target=TkinterGui)
+GUI.start()
+
+Process = threading.Thread(target=play)
+Process.start()
+
+GUI.join()
+Process.join()
