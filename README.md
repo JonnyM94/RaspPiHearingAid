@@ -1,2 +1,2 @@
-# RaspPi
-Code for a Raspberry Pi Hearing aid
+# RaspPiHearingAid
+Code for a Raspberry Pi hearing aid
