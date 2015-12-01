@@ -1,0 +1,6 @@
+local_var_name
+GLOBAL_VAR_NAME
+function_name
+module_name
+ClassName
+ExceptionName
