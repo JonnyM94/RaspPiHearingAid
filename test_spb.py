@@ -4,31 +4,7 @@ import numpy as np
 import timeit
 
 from spb import *
-
-def pcm2float(x,dtype='float64'):
-	"""Convert a PCM signal to floating point data with a range from -1 to 1.
-	
-	ARGUMENTS
-	x : array
-		Input array of integral type.
-	dtype : data type, optional
-		Desired (floating point) data type.
-	
-	RETURNS
-	numpy.ndarray
-		Normalised floating point data.
-				
-	"""
-	x = np.asarray(x) # Convert to numpy array
-	if x.dtype.kind not in 'iu': # Check that x is a signed (i) or unsinged (u) integer
-		raise TypeError("'x' must be an array of integers")
-	dtype = np.dtype(dtype) # Convert string to data type object
-	if dtype.kind != 'f': # Check that dtype is a floating point type
-		raise TypeError("'dtype' must be a floating point type")
-	i = np.iinfo(x.dtype) # Find machine limits for data type
-	abs_max = 2**(i.bits-1) # Find absolute max limits
-	offset = i.min + abs_max # Find offset
-	return (x.astype(dtype)-offset)/abs_max # Convert signal to floating point type
+from utilities import *
 
 """ Load sample file """
 
@@ -52,7 +28,7 @@ plt.title('Gain of '+str(G)+' dB applied')
 plt.xlabel('Time (s)')
 plt.ylabel('Amplitude')
 
-print('Gain = ' + str(np.average(timeit.repeat("gain(x,G)","from __main__ import gain,x,G",number=1,repeat=100))*1000) + ' ms')
+print('Gain = ' + str(np.average(timeit.repeat("gain(x,G)","from __main__ import gain,x,G",number=1,repeat=10000))*1000) + ' ms')
 
 """ Test compressor """
 
@@ -73,4 +49,4 @@ plt.title('Envelope detection applied')
 plt.xlabel('Time (s)')
 plt.ylabel('Amplitude')
 
-print('Compressor = ' + str(np.average(timeit.repeat("compressor(x,fs,tauA,tauR,T,CR,KW,MG)","from __main__ import compressor,x,fs,tauA,tauR,T,CR,KW,MG",number=1,repeat=100))*1000) + ' ms')
+print('Compressor = ' + str(np.average(timeit.repeat("compressor(x,fs,tauA,tauR,T,CR,KW,MG)","from __main__ import compressor,x,fs,tauA,tauR,T,CR,KW,MG",number=1,repeat=10000))*1000) + ' ms')

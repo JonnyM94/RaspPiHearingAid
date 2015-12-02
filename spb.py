@@ -1,12 +1,5 @@
-import numpy as np
-
-def amp2dB(x):
-	y = 20*np.log10(x)
-	return y
-
-def dB2amp(x):
-	y = np.power(10,x/20)
-	return y
+from utilities import amp2dB,dB2amp
+from numpy import multiply,power,exp,zeros
 
 def gain(x,gdB):
 	"""Applies decibel gain to a signal.
@@ -22,7 +15,7 @@ def gain(x,gdB):
 		Array x with gain applied.
 				
 	"""
-	y = np.multiply(np.power(10,gdB/20.0),x)
+	y = multiply(power(10,gdB/20.0),x)
 	return y
 	
 def compressor(x,fs,tauA,tauR,T,CR,KW,MG):
@@ -44,11 +37,11 @@ def compressor(x,fs,tauA,tauR,T,CR,KW,MG):
 				
 	"""
 	# Extract envelope
-	alphaA = np.exp(-1/(tauA*fs)) # Convert tauA and tauR (attack and release times) for use in algorithm
-	alphaR = np.exp(-1/(tauR*fs))
+	alphaA = exp(-1/(tauA*fs)) # Convert tauA and tauR (attack and release times) for use in algorithm
+	alphaR = exp(-1/(tauR*fs))
 	x_abs = abs(x)
 	c = 0 # Dummy variable for incoming signal
-	x_env = np.zeros(len(x))
+	x_env = zeros(len(x))
 	for i in range(0,len(x)):
 		if x_abs[i] > c: # When next sample is increasing
 			c = alphaA*c+(1-alphaA)*x_abs[i] # Attack
@@ -58,12 +51,12 @@ def compressor(x,fs,tauA,tauR,T,CR,KW,MG):
 	# Compute gain
 	xdB_env = amp2dB(x_env)
 	xdB = amp2dB(x)
-	ydB = np.zeros(len(x))
+	ydB = zeros(len(x))
 	for i in range(0,len(x)):
 		if 2*(xdB_env[i]-T) < -KW: # Below threshold
 			ydB[i] = xdB[i]
 		elif 2*(abs(xdB_env[i]-T)) <= KW: # Within knee range
-			ydB[i] = xdB[i]+(1/CR-1)*np.power((xdB[i]-T+KW/2),2)/(2*KW)
+			ydB[i] = xdB[i]+(1/CR-1)*power((xdB[i]-T+KW/2),2)/(2*KW)
 		elif 2*(xdB_env[i]-T) > KW: # Over threshold
 			ydB[i] = T+(xdB[i]-T)/CR
 	ydB = ydB+MG

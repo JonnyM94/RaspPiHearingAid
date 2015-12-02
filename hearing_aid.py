@@ -46,12 +46,13 @@ matplotlib		# For plotting graphs
 
 print_debug('Importing modules...')
 
-import os, ConfigParser, alsaaudio, threading, numpy as np, spb
+import os, ConfigParser, alsaaudio, threading, numpy as np, spb, Tkinter as tk, time
 
 if gui == True: # Only import is GUI is required
-	import Tkinter as tk, matplotlib.pyplot as plt
+	import matplotlib.pyplot as plt
 
-
+from spb import *
+from utilities import *
 
 """ CONFIG PARSER """
 
@@ -75,15 +76,13 @@ print_debug('Assigning global variables...')
 # Gain
 GAIN = cfg.getfloat('gain','value')
 
-# Envelope detection
-ENV_A_TIME = cfg.getfloat('envelope detection','attack_time')
-ENV_R_TIME = cfg.getfloat('envelope detection','release_time')
-
 # Compressor
+ENV_A = cfg.getfloat('envelope detection','attack_time')
+ENV_R = cfg.getfloat('envelope detection','release_time')
 COMPRESSOR_T = cfg.getfloat('compressor','threshold')
 COMPRESSOR_CR = cfg.getfloat('compressor','compression_ratio')
-COMPRESSOR_MG = cfg.getfloat('compressor','makeup_gain')
 COMPRESSOR_KW = cfg.getfloat('compressor','knee_width')
+COMPRESSOR_MG = cfg.getfloat('compressor','makeup_gain')
 
 
 
@@ -105,13 +104,13 @@ print_debug('Reticulating splines...')
 inp = alsaaudio.PCM(alsaaudio.PCM_CAPTURE,alsaaudio.PCM_NORMAL,card)
 inp.setchannels(channels)
 inp.setrate(fs)
-inp.setformat(alsaaudio.PCM_FORMAT_FLOAT_LE)
+inp.setformat(alsaaudio.PCM_FORMAT_S16_LE)
 inp.setperiodsize(chunk)
 
 out = alsaaudio.PCM(alsaaudio.PCM_PLAYBACK,alsaaudio.PCM_NORMAL,card)
 out.setchannels(channels)
 out.setrate(fs)
-out.setformat(alsaaudio.PCM_FORMAT_FLOAT_LE)
+out.setformat(alsaaudio.PCM_FORMAT_S16_LE)
 out.setperiodsize(chunk)
 
 
@@ -125,11 +124,16 @@ def playAudio():
 		if BYPASS['AUDIO'] == False:
 			l,data = inp.read() # Find length and extract data from stream
 			if l == chunk: # Check that the length
-				data_proc = np.fromstring(data,dtype="float32")
+				t1 = time.clock()
+				data_proc = pcm2float(np.fromstring(data,dtype="int16"))
 				if BYPASS['GAIN'] == False:
 					data_proc = spb.gain(data_proc,GAIN)
-				data_out = np.array(data_proc,dtype="float32")
-				out.write(data_out)
+				if BYPASS['COMPRESSOR'] == False:
+					data_proc = spb.compressor(data_proc,fs,ENV_A,ENV_R,COMPRESSOR_T,COMPRESSOR_CR,COMPRESSOR_KW,COMPRESSOR_MG)
+				#data_out = np.array(float2pcm(data_proc),dtype="int16")
+				print((time.clock()-t1)*1000)
+				#print(data[1])
+				out.write(data)
 			else:
 				out.write(silence)
 	else:
@@ -145,6 +149,7 @@ if gui == False:
 	BYPASS = {
 			'AUDIO': False,
 			'GAIN':  False,
+			'COMPRESSOR': False
 			}
 			
 elif gui == True:
@@ -152,6 +157,7 @@ elif gui == True:
 	BYPASS = {
 			'AUDIO': True,
 			'GAIN':  True,
+			'COMPRESSOR': True
 			}
 	
 	global btn_toggle_audio, btn_toggle_gain
@@ -173,6 +179,15 @@ elif gui == True:
 		else:
 			BYPASS['GAIN']  = True
 			btn_toggle_gain.config(text='Gain OFF')
+	
+	def toggle_compressor():
+		global BYPASS
+		if BYPASS['COMPRESSOR']  == True:
+			BYPASS['COMPRESSOR']  = False
+			btn_toggle_compressor.config(text='Compressor ON')
+		else:
+			BYPASS['COMPRESSOR']  = True
+			btn_toggle_compressor.config(text='Compressor OFF')
 
 
 
@@ -195,7 +210,7 @@ def GUI():
 	
 	global finish
 	global BYPASS
-	global btn_toggle_audio, btn_toggle_gain
+	global btn_toggle_audio, btn_toggle_gain, btn_toggle_compressor
 	
 	root=tk.Tk()
 	
@@ -208,6 +223,9 @@ def GUI():
 	
 	btn_toggle_gain = tk.Button(root, text="Gain OFF", command=toggle_gain)
 	btn_toggle_gain.pack()
+	
+	btn_toggle_compressor = tk.Button(root, text="Compressor OFF", command=toggle_compressor)
+	btn_toggle_compressor.pack()
 	
 	root.mainloop()
 	    
