@@ -1,7 +1,7 @@
 """ FUTURE IMPORTS """
-import platform
-from __future__ import print_function, division, absolute_import, unicode_literals
 
+from __future__ import print_function, division, absolute_import, unicode_literals
+import platform
 
 
 """ INITIAL USER INPUTS """
@@ -105,7 +105,6 @@ fs = cfg.getint('i/o','fs')
 if platform.system()!='Windows':  #Don't load ALSA stuff when testing on windows
         import alsaaudio
 
-inp = alsaaudio.PCM(alsaaudio.PCM_CAPTURE,alsaaudio.PCM_NORMAL,card)
         print_debug('Reticulating splines...')
 
         inp = alsaaudio.PCM(alsaaudio.PCM_CAPTURE,alsaaudio.PCM_NORMAL,card)
