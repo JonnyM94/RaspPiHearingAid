@@ -89,12 +89,6 @@ COMPRESSOR_KW = cfg.getfloat('compressor','knee_width')
 FEEDBACK_DELAY = cfg.getfloat('feedback_simulation','sample_delay')
 FEEDBACK_GAIN = cfg.getfloat('feedback_simulation','feedback_gain')
 
-#Filters
-FILTER_CHANNELS = cfg.getint('filters','number_of_filters')
-FILTER_ORDER = cfg.getint('filters','filter_order')
-FILTER_MIN = cfg.getfloat('filters','filter_min')
-FILTER_MAX = cfg.getfloat('filters','filter_max')
-
 """ SET AUDIO PARAMETERS """
 
 print_debug('Setting audio parameters...')
@@ -103,6 +97,7 @@ chunk = cfg.getint('i/o','chunk')
 channels = cfg.getint('i/o','channels')
 card = cfg.get('i/o','card')
 fs = cfg.getint('i/o','fs')
+
 
 
 """ SET INPUT AND OUTPUT """
@@ -124,20 +119,10 @@ if platform.system()!='Windows':  #Don't load ALSA stuff when testing on windows
         out.setformat(alsaaudio.PCM_FORMAT_FLOAT_LE)
         out.setperiodsize(chunk)
 
-""" Filter creation """
+""" Filter """
+b,a = sig.butter(4,0.1,'low')
 
-#Creates an array of FILTER_CHANNELS number of
-#equally spaced filter cutoff frequencies from FILTER_MIN to FILTER_MAX
-filter_array=[]
-ratio = (FILTER_MAX - FILTER_MIN)
 
-for i in range(0,FILTER_CHANNELS):
-        filter_array.append(FILTER_MIN + ratio*float(i)/float(FILTER_CHANNELS))
-        filter_array.append(FILTER_MIN + ratio*float(i)/float(FILTER_CHANNELS) + ratio/float(FILTER_CHANNELS))
-
-b,a = spb.create_filters(filter_array,FILTER_ORDER)
-        
-print_debug('Filter cutoffs: '+", ".join(str(x) for x in filter_array))
 
 """ I/O FUNCTION """
 
@@ -145,7 +130,7 @@ silence = chr(0)*channels*chunk*2
 
 
 def playAudio():
-        output_feedback = np.empty(chunk*2)
+        output_feedback = np.zeros(chunk*2)
         
         while not finish:
                 if BYPASS['AUDIO'] == False:
@@ -159,16 +144,7 @@ def playAudio():
                                 if BYPASS['GAIN'] == False:
                                         data_proc = spb.gain(data_proc,GAIN)
 
-                                ##SPLIT INTO CHANNELS
-                                if BYPASS['FILTERS'] == False:  
-                                        channel_data = np.empty([FILTER_CHANNELS, len(data_proc)]); #Channel data array, rows are channels
-                                        for i in range(0,FILTER_CHANNELS):
-                                                channel_data[i] = sig.filtfilt(b[i],a[i],data_proc)  #Perform each filter
-
-                                        #Recombine the channels
-                                        data_proc = channel_data.sum(axis=0)  #Sums all columns, i.e adds the channels back together
-                                        
-                                ##END CHANNEL SPLIT
+                                data_proc = sig.filtfilt(b,a,data_proc)
 
                                 if BYPASS['FEEDBACK'] == False:  #Store the output buffer for feedback
                                         output_feedback = data_proc
@@ -191,7 +167,6 @@ if gui == False:
                         'AUDIO': False,
                         'GAIN':  False,
                         'FEEDBACK': False,
-                        'FILTERS': False,
                         }
                         
 elif gui == True:
@@ -200,7 +175,6 @@ elif gui == True:
                         'AUDIO': True,
                         'GAIN':  True,
                         'FEEDBACK': True,
-                        'FILTERS': True,
                         }
         
         global btn_toggle_audio, btn_toggle_gain, btn_toggle_feedback
@@ -232,18 +206,6 @@ elif gui == True:
                         BYPASS['FEEDBACK']  = True
                         btn_toggle_feedback.config(text='Feedback OFF')
 
-        def toggle_filters():
-                global BYPASS
-                if BYPASS['FILTERS']  == True:
-                        BYPASS['FILTERS']  = False
-                        btn_toggle_filters.config(text='Filters ON')
-                else:
-                        BYPASS['FILTERS']  = True
-                        btn_toggle_filters.config(text='Filters OFF')
-
-        def plot_filt():
-                spb.plot_all_filters(b,a)
-
 
 
 """ GUI INTERFACING """
@@ -265,7 +227,7 @@ def GUI():
         
         global finish
         global BYPASS
-        global btn_toggle_audio, btn_toggle_gain, btn_toggle_feedback, btn_toggle_filters, btn_plot_filters
+        global btn_toggle_audio, btn_toggle_gain, btn_toggle_feedback
         
         root=tk.Tk()
         
@@ -281,12 +243,6 @@ def GUI():
 
         btn_toggle_feedback = tk.Button(root, text="Feedback OFF", command=toggle_feedback)
         btn_toggle_feedback.pack()
-
-        btn_toggle_filters = tk.Button(root, text="Filters OFF", command=toggle_filters)
-        btn_toggle_filters.pack()
-
-        btn_plot_filters = tk.Button(root, text="Plot filters", command=plot_filt)
-        btn_plot_filters.pack()
         
         root.mainloop()
             
