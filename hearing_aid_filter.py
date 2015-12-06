@@ -20,7 +20,6 @@ else:
         debug = False
 
 
-
 """ DEBUGGING FUNCTIONS """
 
 def print_debug(x):
