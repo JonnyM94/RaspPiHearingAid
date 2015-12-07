@@ -1,7 +1,6 @@
 """ FUTURE IMPORTS """
-import platform
 from __future__ import print_function, division, absolute_import, unicode_literals
-
+import platform
 
 
 """ INITIAL USER INPUTS """
@@ -108,7 +107,7 @@ if platform.system()!='Windows':  #Don't load ALSA stuff when testing on windows
         import alsaaudio
 
 inp = alsaaudio.PCM(alsaaudio.PCM_CAPTURE,alsaaudio.PCM_NORMAL,card)
-<<<<<<< HEAD
+
 inp.setchannels(channels)
 inp.setrate(fs)
 inp.setformat(alsaaudio.PCM_FORMAT_S16_LE)
@@ -119,21 +118,8 @@ out.setchannels(channels)
 out.setrate(fs)
 out.setformat(alsaaudio.PCM_FORMAT_S16_LE)
 out.setperiodsize(chunk)
-=======
-        print_debug('Reticulating splines...')
 
-        inp = alsaaudio.PCM(alsaaudio.PCM_CAPTURE,alsaaudio.PCM_NORMAL,card)
-        inp.setchannels(channels)
-        inp.setrate(fs)
-        inp.setformat(alsaaudio.PCM_FORMAT_FLOAT_LE)
-        inp.setperiodsize(chunk)
-
-        out = alsaaudio.PCM(alsaaudio.PCM_PLAYBACK,alsaaudio.PCM_NORMAL,card)
-        out.setchannels(channels)
-        out.setrate(fs)
-        out.setformat(alsaaudio.PCM_FORMAT_FLOAT_LE)
-        out.setperiodsize(chunk)
->>>>>>> origin/master
+print_debug('Reticulating splines...')
 
 
 
@@ -143,7 +129,7 @@ silence = chr(0)*channels*chunk*2
 
 
 def playAudio():
-<<<<<<< HEAD
+
 	while not finish:
 		if BYPASS['AUDIO'] == False:
 			l,data = inp.read() # Find length and extract data from stream
@@ -161,7 +147,7 @@ def playAudio():
 	else:
 		pass
 	time.sleep(0.0001)
-=======
+
         output_feedback = np.zeros(chunk*2)
         
         while not finish:
@@ -186,7 +172,7 @@ def playAudio():
         else:
                 pass
         time.sleep(0.001)
->>>>>>> origin/master
+
 
 
 
@@ -255,7 +241,7 @@ if gui == True:
 print_debug('Generating GUI...')
 
 def GUI():
-<<<<<<< HEAD
+
 	
 	global finish
 	global BYPASS
@@ -276,31 +262,8 @@ def GUI():
 	root.mainloop()
 	    
 	finish = True
-=======
-        
-        global finish
-        global BYPASS
-        global btn_toggle_audio, btn_toggle_gain, btn_toggle_feedback
-        
-        root=tk.Tk()
-        
-        btn_toggle_audio = tk.Button(root, text='Start audio', command=toggle_audio)
-        btn_toggle_audio.pack()
 
-        slider_gain = tk.Scale(root,from_=-20,to=6,resolution=0.1,label='GAIN',orient='horizontal',command=get_gain,length=120)
-        slider_gain.set(GAIN)
-        slider_gain.pack(fill='x')
-        
-        btn_toggle_gain = tk.Button(root, text="Gain OFF", command=toggle_gain)
-        btn_toggle_gain.pack()
 
-        btn_toggle_feedback = tk.Button(root, text="Feedback OFF", command=toggle_feedback)
-        btn_toggle_feedback.pack()
-        
-        root.mainloop()
-            
-        finish = True
->>>>>>> origin/master
 
 
 """ THREADING """
