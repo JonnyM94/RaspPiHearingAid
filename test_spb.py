@@ -46,13 +46,14 @@ G = -6
 
 y = gain(x,G)
 
-plt.plot(t,x)
-plt.plot(t,y,'r')
+plt.plot(x)
+plt.plot(y,'r')
 plt.title('Gain of '+str(G)+' dB applied')
 plt.xlabel('Time (s)')
 plt.ylabel('Amplitude')
+#plt.show()
 
-print('Gain = ' + str(np.average(timeit.repeat("gain(x,G)","from __main__ import gain,x,G",number=1,repeat=100))*1000) + ' ms')
+#print('Gain = ' + str(np.average(timeit.repeat("gain(x,G)","from __main__ import gain,x,G",number=1,repeat=100))*1000) + ' ms')
 
 """ Test compressor """
 
@@ -67,10 +68,11 @@ MG = 0
 
 y = compressor(x,fs,tauA,tauR,T,CR,KW,MG)
 
-plt.plot(t,x)
-plt.plot(t,y,'r')
+plt.plot(x)
+plt.plot(y,'r')
 plt.title('Envelope detection applied')
 plt.xlabel('Time (s)')
 plt.ylabel('Amplitude')
+#plt.show()
 
-print('Compressor = ' + str(np.average(timeit.repeat("compressor(x,fs,tauA,tauR,T,CR,KW,MG)","from __main__ import compressor,x,fs,tauA,tauR,T,CR,KW,MG",number=1,repeat=100))*1000) + ' ms')
+#print('Compressor = ' + str(np.average(timeit.repeat("compressor(x,fs,tauA,tauR,T,CR,KW,MG)","from __main__ import compressor,x,fs,tauA,tauR,T,CR,KW,MG",number=1,repeat=100))*1000) + ' ms')

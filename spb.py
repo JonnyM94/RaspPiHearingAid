@@ -1,10 +1,11 @@
 import numpy as np
+import time
 
-def amp2dB(x):
-	y = 20*np.log10(x)
+def mag2dB(x):
+	y = 20*np.log10(abs(x))
 	return y
 
-def dB2amp(x):
+def dB2mag(x):
 	y = np.power(10,x/20)
 	return y
 
@@ -44,6 +45,7 @@ def compressor(x,fs,tauA,tauR,T,CR,KW,MG):
 				
 	"""
 	# Extract envelope
+	t1 = time.time()
 	alphaA = np.exp(-1/(tauA*fs)) # Convert tauA and tauR (attack and release times) for use in algorithm
 	alphaR = np.exp(-1/(tauR*fs))
 	x_abs = abs(x)
@@ -55,6 +57,8 @@ def compressor(x,fs,tauA,tauR,T,CR,KW,MG):
 		else: # When next sample is decreasing
 			c = alphaR*c+(1-alphaR)*x_abs[i] # Release
 		x_env[i] = c # Assig new value to y
+	t2 = time.time()
+	print(t2-t1)
 	# Compute gain
 	xdB_env = amp2dB(x_env)
 	xdB = amp2dB(x)

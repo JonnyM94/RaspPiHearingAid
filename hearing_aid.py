@@ -91,8 +91,10 @@ COMPRESSOR_KW = cfg.getfloat('compressor','knee_width')
 
 print_debug('Setting audio parameters...')
 
-chunk = cfg.getint('i/o','chunk')
+buffer_size = cfg.getint('i/o','buffer_size')
 channels = cfg.getint('i/o','channels')
+period_size = 2*channels # Period size (in bytes) for int16 x number of channels
+chunk = int(buffer_size/period_size)
 card = cfg.get('i/o','card')
 fs = cfg.getint('i/o','fs')
 
@@ -105,13 +107,13 @@ print_debug('Reticulating splines...')
 inp = alsaaudio.PCM(alsaaudio.PCM_CAPTURE,alsaaudio.PCM_NORMAL,card)
 inp.setchannels(channels)
 inp.setrate(fs)
-inp.setformat(alsaaudio.PCM_FORMAT_FLOAT_LE)
+inp.setformat(alsaaudio.PCM_FORMAT_S16_LE)
 inp.setperiodsize(chunk)
 
 out = alsaaudio.PCM(alsaaudio.PCM_PLAYBACK,alsaaudio.PCM_NORMAL,card)
 out.setchannels(channels)
 out.setrate(fs)
-out.setformat(alsaaudio.PCM_FORMAT_FLOAT_LE)
+out.setformat(alsaaudio.PCM_FORMAT_S16_LE)
 out.setperiodsize(chunk)
 
 
@@ -125,16 +127,19 @@ def playAudio():
 		if BYPASS['AUDIO'] == False:
 			l,data = inp.read() # Find length and extract data from stream
 			if l == chunk: # Check that the length
-				data_proc = np.fromstring(data,dtype="float32")
+				data_proc = np.fromstring(data,dtype="int16")
+				
 				if BYPASS['GAIN'] == False:
 					data_proc = spb.gain(data_proc,GAIN)
-				data_out = np.array(data_proc,dtype="float32")
-				out.write(data_out)
+					data_proc = np.array(data_proc,dtype="int16")
+				
+				
+				out.write(data_proc)
 			else:
 				out.write(silence)
 	else:
 		pass
-	time.sleep(0.001)
+	time.sleep(0.0001)
 
 
 
@@ -200,14 +205,14 @@ def GUI():
 	root=tk.Tk()
 	
 	btn_toggle_audio = tk.Button(root, text='Start audio', command=toggle_audio)
-	btn_toggle_audio.pack()
+	btn_toggle_audio.grid(row=0, column=0)
 
-	slider_gain = tk.Scale(root,from_=-20,to=6,resolution=0.1,label='GAIN',orient='horizontal',command=get_gain,length=120)
+	slider_gain = tk.Scale(root,from_=-20,to=30,resolution=0.1,label='GAIN',orient='horizontal',command=get_gain,length=120)
 	slider_gain.set(GAIN)
-	slider_gain.pack(fill='x')
+	slider_gain.grid(row=1, column=0)
 	
 	btn_toggle_gain = tk.Button(root, text="Gain OFF", command=toggle_gain)
-	btn_toggle_gain.pack()
+	btn_toggle_gain.grid(row=2,column=0)
 	
 	root.mainloop()
 	    
