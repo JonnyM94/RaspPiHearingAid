@@ -2,7 +2,7 @@ import numpy as np
 import time
 
 def mag2dB(x):
-	y = 20*np.log10(abs(x))
+	y = 20*np.log10(x)
 	return y
 
 def dB2mag(x):
@@ -44,6 +44,7 @@ def compressor(x,fs,tauA,tauR,T,CR,KW,MG):
 		Compresse.
 				
 	"""
+	
 	# Extract envelope
 	t1 = time.time()
 	alphaA = np.exp(-1/(tauA*fs)) # Convert tauA and tauR (attack and release times) for use in algorithm
@@ -51,28 +52,42 @@ def compressor(x,fs,tauA,tauR,T,CR,KW,MG):
 	x_abs = abs(x)
 	c = 0 # Dummy variable for incoming signal
 	x_env = np.zeros(len(x))
+
 	for i in range(0,len(x)):
 		if x_abs[i] > c: # When next sample is increasing
 			c = alphaA*c+(1-alphaA)*x_abs[i] # Attack
 		else: # When next sample is decreasing
 			c = alphaR*c+(1-alphaR)*x_abs[i] # Release
 		x_env[i] = c # Assig new value to y
-	t2 = time.time()
-	print(t2-t1)
+
 	# Compute gain
-	xdB_env = amp2dB(x_env)
-	xdB = amp2dB(x)
-	ydB = np.zeros(len(x))
+	xdB_env = mag2dB(x_env)
+	xdB = mag2dB(x)
+	y = np.zeros(len(x))
+	
+	# Temp variables to speed up 'for loop'
+	temp1 = 2*(xdB_env-T)
+	temp2 = 2*(abs(xdB_env-T))
+	
+	tloopS = time.time()
 	for i in range(0,len(x)):
-		if 2*(xdB_env[i]-T) < -KW: # Below threshold
-			ydB[i] = xdB[i]
-		elif 2*(abs(xdB_env[i]-T)) <= KW: # Within knee range
-			ydB[i] = xdB[i]+(1/CR-1)*np.power((xdB[i]-T+KW/2),2)/(2*KW)
-		elif 2*(xdB_env[i]-T) > KW: # Over threshold
-			ydB[i] = T+(xdB[i]-T)/CR
-	ydB = ydB+MG
-	y = dB2amp(ydB)
-	return y
+		
+		if temp1[i] < -KW: # Below threshold
+			y[i] = x[i]
+			
+		elif temp2[i] <= KW: # Within knee range)
+			y[i] = x*dB2mag((1/CR-1)*np.power((xdB[i]-T+KW/2),2)/(2*KW))
+			
+		elif temp1[i] > KW: # Over threshold
+			y[i] = (x[i]/CR)*dB2mag(T(1-1/CR))
+	
+	t2 = time.time()
+	print ("Envelope time")
+	print((tloopS-t1)*1000)
+	print("Loop Time")
+	print((t2-tloopS)*1000)
+	
+	return y,x_abs,x_env,xdB_env
 
 from numpy import multiply, power, add
 

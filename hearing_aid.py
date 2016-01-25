@@ -1,7 +1,7 @@
 """ FUTURE IMPORTS """
 from __future__ import print_function, division, absolute_import, unicode_literals
 import platform
-
+import time
 
 """ INITIAL USER INPUTS """
 
@@ -132,16 +132,25 @@ def playAudio():
 
 	while not finish:
 		if BYPASS['AUDIO'] == False:
+			t1 = time.time()
 			l,data = inp.read() # Find length and extract data from stream
 			if l == chunk: # Check that the length
 				data_proc = np.fromstring(data,dtype="int16")
 				
 				if BYPASS['GAIN'] == False:
 					data_proc = spb.gain(data_proc,GAIN)
-					data_proc = np.array(data_proc,dtype="int16")
+					
 				
+				if BYPASS['COMPRESSOR'] == False:
+					data_proc = spb.compressor(data_proc,fs,ENV_A_TIME,ENV_R_TIME,T,CR,KW,MG)
+					
+					
+				data_proc = np.array(data_proc,dtype="int16") #Converts back to original data type for output
+				out.write(data_proc) #Output
 				
-				out.write(data_proc)
+				t2 = time.time()
+				print ('Total passage time')
+				print ((t2-t1)*1000)
 			else:
 				out.write(silence)
 	else:
@@ -149,30 +158,7 @@ def playAudio():
 	time.sleep(0.0001)
 
         output_feedback = np.zeros(chunk*2)
-        
-        while not finish:
-                if BYPASS['AUDIO'] == False:
-                        l,data = inp.read() # Find length and extract data from stream
-                        if l == chunk: # Check that the length
-                                data_proc = np.fromstring(data,dtype="float32")
-
-                                if BYPASS['FEEDBACK'] == False: #Add last output to current input
-                                        data_proc = spb.add_feedback(data_proc,output_feedback,FEEDBACK_GAIN)
-
-                                if BYPASS['GAIN'] == False:
-                                        data_proc = spb.gain(data_proc,GAIN)
-
-                                if BYPASS['FEEDBACK'] == False:  #Store the output buffer for feedback
-                                        output_feedback = data_proc
-                                        
-                                data_out = np.array(data_proc,dtype="float32")
-                                out.write(data_out)
-                        else:
-                                out.write(silence)
-        else:
-                pass
-        time.sleep(0.001)
-
+    
 
 
 
@@ -184,28 +170,30 @@ if gui == False:
                         'AUDIO': False,
                         'GAIN':  False,
                         'FEEDBACK': False,
+						'COMPRESSOR': False,
                         }
                         
 elif gui == True:
+		
+	BYPASS = {
+						'AUDIO': True,
+						'GAIN':  True,
+						'FEEDBACK': True,
+						'COMPRESSOR': True,
+						}
+
+	global btn_toggle_audio, btn_toggle_gain, btn_toggle_feedback, btn_toggle_comp
         
-        BYPASS = {
-                        'AUDIO': True,
-                        'GAIN':  True,
-                        'FEEDBACK': True,
-                        }
+	def toggle_audio(): 											#Toggle audio on/off
+				global BYPASS
+				if BYPASS['AUDIO'] == True:
+						BYPASS['AUDIO'] = False
+						btn_toggle_audio.config(text='Stop audio')
+				elif BYPASS['AUDIO'] == False:
+						BYPASS['AUDIO'] = True
+						btn_toggle_audio.config(text='Start audio')
         
-        global btn_toggle_audio, btn_toggle_gain, btn_toggle_feedback
-        
-        def toggle_audio():
-                global BYPASS
-                if BYPASS['AUDIO'] == True:
-                        BYPASS['AUDIO'] = False
-                        btn_toggle_audio.config(text='Stop audio')
-                elif BYPASS['AUDIO'] == False:
-                        BYPASS['AUDIO'] = True
-                        btn_toggle_audio.config(text='Start audio')
-        
-        def toggle_gain():
+	def toggle_gain():											#Toggle gain func on/off
                 global BYPASS
                 if BYPASS['GAIN']  == True:
                         BYPASS['GAIN']  = False
@@ -214,7 +202,16 @@ elif gui == True:
                         BYPASS['GAIN']  = True
                         btn_toggle_gain.config(text='Gain OFF')
 
-        def toggle_feedback():
+	def toggle_comp():											#Toggle compressor on/off
+				global BYPASS
+				if BYPASS['COMPRESSOR'] == True:
+						BYPASS['COMPRESSOR'] = False
+						btn_toggle_comp.config(text='Compressor ON')
+				else:
+						BYPASS['COMPRESSOR'] = True
+						btn_toggle_comp.config(text='Compressor OFF')
+
+	def toggle_feedback():										#Toggle feedback on/off
                 global BYPASS
                 if BYPASS['FEEDBACK']  == True:
                         BYPASS['FEEDBACK']  = False
@@ -229,11 +226,31 @@ elif gui == True:
 
 if gui == True:
         
-        # Gain
-        def get_gain(val):
-            global GAIN
-            GAIN = float(val)   
-
+		# Gain
+		def get_gain(val):
+			global GAIN
+			GAIN = float(val)   
+			
+			
+		# Compressor Threshold
+		def get_T(val):
+			global T
+			T = float(val)
+			
+		# Compressor Makeup
+		def get_MG(val):
+			global MG
+			MG = float(val)
+			
+		# Compressor Knee Width
+		def get_KW(val):
+			global KW
+			KW = float(val)
+			
+		# Compressor Compression ratio
+		def get_CR(val):
+			global CR
+			CR = float(val)
 
 
 """ TKINTER GUI """
@@ -245,19 +262,41 @@ def GUI():
 	
 	global finish
 	global BYPASS
-	global btn_toggle_audio, btn_toggle_gain
+	global btn_toggle_audio, btn_toggle_gain, btn_toggle_comp
 	
 	root=tk.Tk()
 	
+	""" Toggle Audio"""
 	btn_toggle_audio = tk.Button(root, text='Start audio', command=toggle_audio)
 	btn_toggle_audio.grid(row=0, column=0)
 
-	slider_gain = tk.Scale(root,from_=-20,to=30,resolution=0.1,label='GAIN',orient='horizontal',command=get_gain,length=120)
+	""" Gain """
+	slider_gain = tk.Scale(root,from_=-20,to=30,resolution=0.1,label='GAIN (dB)',orient='horizontal',command=get_gain,length=120)
 	slider_gain.set(GAIN)
 	slider_gain.grid(row=1, column=0)
 	
 	btn_toggle_gain = tk.Button(root, text="Gain OFF", command=toggle_gain)
 	btn_toggle_gain.grid(row=2,column=0)
+
+	""" Compressor """
+	btn_toggle_comp = tk.Button(root, text="Compressor OFF", command=toggle_comp)
+	btn_toggle_comp.grid(row=4, column=0)
+	
+	slider_comp_thresh = tk.Scale(from_=-20, to=50, resolution=0.1,label="Threshold (dB)", orient="horizontal",command=get_T,length=120)
+	slider_comp_thresh.set(COMPRESSOR_T)
+	slider_comp_thresh.grid(row=5, column=0)
+	
+	slider_comp_MG = tk.Scale(from_=0, to=40, resolution=0.5,label="Makeup Gain (dB)",orient="horizontal", command=get_MG,length=120)
+	slider_comp_MG.set(COMPRESSOR_MG)
+	slider_comp_MG.grid(row=6, column=0)
+	
+	slider_comp_KW = tk.Scale(from_=0, to =30, resolution=0.5, label="Knee Width", orient="horizontal", command=get_KW,length=120)
+	slider_comp_KW.set(COMPRESSOR_KW)
+	slider_comp_KW.grid(row=7,column=0)
+	
+	slider_comp_CR = tk.Scale(from_=1, to=50, resolution=0.1, label="Compression Ratio", orient="horizontal", command=get_CR,length=120)
+	slider_comp_CR.set(COMPRESSOR_CR)
+	slider_comp_CR.grid(row=9, column=0)
 	
 	root.mainloop()
 	    
